@@ -5,7 +5,8 @@
 # for DiffPure. To view a copy of this license, see the LICENSE file.
 # ---------------------------------------------------------------
 
-import os, sys
+import os
+import sys
 
 import io
 import lmdb
@@ -16,7 +17,7 @@ from PIL import Image
 
 import torch
 import torchvision
-from torch.utils.data import Dataset, Subset
+from torch.utils.data import Dataset, Subset, DataLoader
 
 import torchvision.transforms as transforms
 from torchvision.datasets.vision import VisionDataset
@@ -58,11 +59,13 @@ class ImageDataset(VisionDataset):
                     samples.append((os.path.join(self.root, path), int(idx)))
         else:
             print("Walking directory: %s" % self.root)
-            samples = folder.make_dataset(self.root, class_to_idx, extensions, is_valid_file)
+            samples = folder.make_dataset(
+                self.root, class_to_idx, extensions, is_valid_file)
             with open(cache, 'w') as f:
                 for line in samples:
                     path, label = line
-                    f.write('%s;%d\n' % (remove_prefix(path, self.root).lstrip('/'), label))
+                    f.write('%s;%d\n' %
+                            (remove_prefix(path, self.root).lstrip('/'), label))
 
         if len(samples) == 0:
             raise (RuntimeError(
@@ -84,7 +87,8 @@ class ImageDataset(VisionDataset):
             # Faster and available in Python 3.5 and above
             classes = [d.name for d in os.scandir(dir) if d.is_dir()]
         else:
-            classes = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
+            classes = [d for d in os.listdir(
+                dir) if os.path.isdir(os.path.join(dir, d))]
         classes.sort()
         class_to_idx = {classes[i]: i for i in range(len(classes))}
         return classes, class_to_idx
@@ -161,9 +165,11 @@ class CelebAHQDataset(Dataset):
             print("The subsetted dataset has length %d" % len(partition_idx))
 
         elif chunk_length is not None and chunk_idx > 0:
-            print(f"Using a fraction of the original dataset with chunk_length: {chunk_length}, chunk_idx: {chunk_idx}")
+            print(
+                f"Using a fraction of the original dataset with chunk_length: {chunk_length}, chunk_idx: {chunk_idx}")
             print("The original dataset has length %d" % len(partition_idx))
-            new_indices = partition_idx[chunk_length * chunk_idx: chunk_length * (chunk_idx + 1)]
+            new_indices = partition_idx[chunk_length *
+                                        chunk_idx: chunk_length * (chunk_idx + 1)]
             partition_idx = new_indices
             print("The subsetted dataset has length %d" % len(partition_idx))
 
@@ -316,7 +322,8 @@ def imagenet_lmdb_dataset_sub(
         loader=loader)
 
     if num_sub > 0:
-        partition_idx = np.random.RandomState(data_seed).choice(len(data_set), num_sub, replace=False)
+        partition_idx = np.random.RandomState(data_seed).choice(
+            len(data_set), num_sub, replace=False)
         data_set = Subset(data_set, partition_idx)
 
     return data_set
@@ -327,10 +334,40 @@ def imagenet_lmdb_dataset_sub(
 ###############################################################################
 
 def cifar10_dataset_sub(root, transform=None, num_sub=-1, data_seed=0):
-    val_data = torchvision.datasets.CIFAR10(root=root, transform=transform, download=True, train=False)
+    val_data = torchvision.datasets.CIFAR10(
+        root=root, transform=transform, download=True, train=False)
 
     if num_sub > 0:
-        partition_idx = np.random.RandomState(data_seed).choice(len(val_data), num_sub, replace=False)
+        partition_idx = np.random.RandomState(data_seed).choice(
+            len(val_data), num_sub, replace=False)
         val_data = Subset(val_data, partition_idx)
 
     return val_data
+
+
+################################################################################
+# Degraded faces
+###############################################################################
+
+class DegradedFacesDataset(VisionDataset):
+    def __init__(self, root=None, seed=0, **kwargs):
+        if root is None:
+            root = '/home/galen/DiffPure/dataset/degraded_faces_square'
+            # root = '/home/galen/DiffPure/dataset/degraded_faces_clean_only'
+        self.root = root
+        self.folder = ImageFolder(root=root)
+        self.classes = self.folder.find_classes(root)
+
+    def __len__(self):
+        return len(self.folder)
+
+    def __getitem__(self, idx):
+        data, label = self.folder[idx]
+        scaled = np.array(data) / 255.
+        return scaled, label
+
+
+def degraded_faces_loader(bs=32, data_root=None):
+    dataset = DegradedFacesDataset(root=data_root)
+    loader = DataLoader(dataset, batch_size=bs, shuffle=True)
+    return loader

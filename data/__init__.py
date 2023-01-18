@@ -7,6 +7,7 @@
 
 from .datasets import imagenet_lmdb_dataset, imagenet_lmdb_dataset_sub, cifar10_dataset_sub
 
+
 def get_transform(dataset_name, transform_type, base_size=256):
     from . import datasets
     if dataset_name == 'celebahq':
@@ -17,9 +18,11 @@ def get_transform(dataset_name, transform_type, base_size=256):
         raise NotImplementedError
 
 
-def get_dataset(dataset_name, partition, *args, **kwargs):
+def get_dataset(dataset_name, partition="", *args, **kwargs):
     from . import datasets
     if dataset_name == 'celebahq':
         return datasets.CelebAHQDataset(partition, *args, **kwargs)
+    if dataset_name == 'faces':
+        return datasets.degraded_faces_loader()
     else:
         raise NotImplementedError

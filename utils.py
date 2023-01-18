@@ -62,7 +62,7 @@ class Logger(object):
 
     def write(self, text: str) -> None:
         """Write text to stdout (and a file) and optionally flush."""
-        if len(text) == 0: # workaround for a bug in VSCode debugger: sys.stdout.write(''); sys.stdout.flush() => crash
+        if len(text) == 0:  # workaround for a bug in VSCode debugger: sys.stdout.write(''); sys.stdout.flush() => crash
             return
 
         if self.file is not None:
@@ -122,7 +122,7 @@ def update_state_dict(state_dict, idx_start=9):
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
         name = k[idx_start:]  # remove 'module.0.' of dataparallel
-        new_state_dict[name]=v
+        new_state_dict[name] = v
 
     return new_state_dict
 
@@ -132,12 +132,27 @@ def get_accuracy(model, x_orig, y_orig, bs=64, device=torch.device('cuda:0')):
     n_batches = x_orig.shape[0] // bs
     acc = 0.
     for counter in range(n_batches):
-        x = x_orig[counter * bs:min((counter + 1) * bs, x_orig.shape[0])].clone().to(device)
-        y = y_orig[counter * bs:min((counter + 1) * bs, x_orig.shape[0])].clone().to(device)
+        x = x_orig[counter * bs:min((counter + 1)
+                                    * bs, x_orig.shape[0])].clone().to(device)
+        y = y_orig[counter * bs:min((counter + 1)
+                                    * bs, x_orig.shape[0])].clone().to(device)
         output = model(x)
         acc += (output.max(1)[1] == y).float().sum()
 
     return (acc / x_orig.shape[0]).item()
+
+
+def purify_faces(model, x_orig, bs=64, device=torch.device('cuda:0')):
+    """The main thing is to call model.forward(x) which calls runner.image_editing_sample()?"""
+    n_batches = x_orig.shape[0] // bs
+    print(x_orig.shape)
+    print("bs {}".format(bs))
+    print("n_batches {}".format(n_batches))
+    for counter in range(n_batches):
+        x = x_orig[counter * bs:min((counter + 1)
+                                    * bs, x_orig.shape[0])].clone().to(device)
+        print("calling model(x)")
+        _ = model(x)  # main
 
 
 def get_image_classifier(classifier_name):
@@ -146,7 +161,8 @@ def get_image_classifier(classifier_name):
             super().__init__()
             self.resnet = resnet
             self.mu = torch.Tensor([0.485, 0.456, 0.406]).float().view(3, 1, 1)
-            self.sigma = torch.Tensor([0.229, 0.224, 0.225]).float().view(3, 1, 1)
+            self.sigma = torch.Tensor(
+                [0.229, 0.224, 0.225]).float().view(3, 1, 1)
 
         def forward(self, x):
             x = (x - self.mu.to(x.device)) / self.sigma.to(x.device)
@@ -167,7 +183,8 @@ def get_image_classifier(classifier_name):
             model = models.wide_resnet50_2(pretrained=True).eval()
         elif 'deit-s' in classifier_name:
             print('using imagenet deit-s...')
-            model = torch.hub.load('facebookresearch/deit:main', 'deit_small_patch16_224', pretrained=True).eval()
+            model = torch.hub.load(
+                'facebookresearch/deit:main', 'deit_small_patch16_224', pretrained=True).eval()
         else:
             raise NotImplementedError(f'unknown {classifier_name}')
 
@@ -176,7 +193,8 @@ def get_image_classifier(classifier_name):
     elif 'cifar10' in classifier_name:
         if 'wideresnet-28-10' in classifier_name:
             print('using cifar10 wideresnet-28-10...')
-            model = load_model(model_name='Standard', dataset='cifar10', threat_model='Linf')  # pixel in [0, 1]
+            model = load_model(model_name='Standard', dataset='cifar10',
+                               threat_model='Linf')  # pixel in [0, 1]
 
         elif 'wrn-28-10-at0' in classifier_name:
             print('using cifar10 wrn-28-10-at0...')
@@ -206,11 +224,13 @@ def get_image_classifier(classifier_name):
         elif 'wideresnet-70-16' in classifier_name:
             print('using cifar10 wideresnet-70-16 (dm_wrn-70-16)...')
             from robustbench.model_zoo.architectures.dm_wide_resnet import DMWideResNet, Swish
-            model = DMWideResNet(num_classes=10, depth=70, width=16, activation_fn=Swish)  # pixel in [0, 1]
+            model = DMWideResNet(num_classes=10, depth=70,
+                                 width=16, activation_fn=Swish)  # pixel in [0, 1]
 
             model_path = 'pretrained/cifar10/wresnet-76-10/weights-best.pt'
             print(f"=> loading wideresnet-70-16 checkpoint '{model_path}'")
-            model.load_state_dict(update_state_dict(torch.load(model_path)['model_state_dict']))
+            model.load_state_dict(update_state_dict(
+                torch.load(model_path)['model_state_dict']))
             model.eval()
             print(f"=> loaded wideresnet-70-16 checkpoint")
 
@@ -221,7 +241,8 @@ def get_image_classifier(classifier_name):
 
             model_path = 'pretrained/cifar10/resnet-50/weights.pt'
             print(f"=> loading resnet-50 checkpoint '{model_path}'")
-            model.load_state_dict(update_state_dict(torch.load(model_path), idx_start=7))
+            model.load_state_dict(update_state_dict(
+                torch.load(model_path), idx_start=7))
             model.eval()
             print(f"=> loaded resnet-50 checkpoint")
 
@@ -232,7 +253,8 @@ def get_image_classifier(classifier_name):
 
             model_path = 'pretrained/cifar10/wrn-70-16-dropout/weights.pt'
             print(f"=> loading wrn-70-16-dropout checkpoint '{model_path}'")
-            model.load_state_dict(update_state_dict(torch.load(model_path), idx_start=7))
+            model.load_state_dict(update_state_dict(
+                torch.load(model_path), idx_start=7))
             model.eval()
             print(f"=> loaded wrn-70-16-dropout checkpoint")
 
@@ -260,7 +282,8 @@ def load_data(args, adv_batch_size):
         val_data = data.imagenet_lmdb_dataset_sub(val_dir, transform=val_transform,
                                                   num_sub=args.num_sub, data_seed=args.data_seed)
         n_samples = len(val_data)
-        val_loader = DataLoader(val_data, batch_size=n_samples, shuffle=False, pin_memory=True, num_workers=4)
+        val_loader = DataLoader(
+            val_data, batch_size=n_samples, shuffle=False, pin_memory=True, num_workers=4)
         x_val, y_val = next(iter(val_loader))
     elif 'cifar10' in args.domain:
         data_dir = './dataset'
@@ -268,7 +291,8 @@ def load_data(args, adv_batch_size):
         val_data = data.cifar10_dataset_sub(data_dir, transform=transform,
                                             num_sub=args.num_sub, data_seed=args.data_seed)
         n_samples = len(val_data)
-        val_loader = DataLoader(val_data, batch_size=n_samples, shuffle=False, pin_memory=True, num_workers=4)
+        val_loader = DataLoader(
+            val_data, batch_size=n_samples, shuffle=False, pin_memory=True, num_workers=4)
         x_val, y_val = next(iter(val_loader))
     elif 'celebahq' in args.domain:
         data_dir = './dataset/celebahq'
@@ -278,6 +302,9 @@ def load_data(args, adv_batch_size):
                                       fraction=2, data_seed=args.data_seed)  # data_seed randomizes here
         loader = DataLoader(clean_dset, batch_size=adv_batch_size, shuffle=False,
                             pin_memory=True, num_workers=4)
+        x_val, y_val = next(iter(loader))  # [0, 1], 256x256
+    elif "faces" in args.domain:
+        loader = data.get_dataset("faces")
         x_val, y_val = next(iter(loader))  # [0, 1], 256x256
     else:
         raise NotImplementedError(f'Unknown domain: {args.domain}!')
